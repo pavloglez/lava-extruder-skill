@@ -56,13 +56,14 @@ You are the librarian of the wiki/ folder. You write and maintain everything in 
 
 ### Compiling
 When I say "compile" or dump new material in raw/:
-1. Read each raw file (consult `/runs/digested_index.md` to skip already processed files)
+1. Read the full content of each new raw file (consult `/runs/digested_index.md` to skip already processed files)
 2. Decide which topic it belongs to (or create a new topic folder)
-3. Write a wiki article with key takeaways and [[wiki links]] to related concepts
-4. Update that topic's _index.md
-5. Update wiki/_master-index.md
-6. If a raw file spans multiple topics, create articles in both and cross-link
-7. Append the raw file's path to `/runs/digested_index.md`
+3. Create a brand new wiki article in the `/wiki` folder synthesizing the data. DO NOT just index or link to the `/raw` file.
+4. Include key takeaways and link the new article to related topics using [[wiki links]]
+5. Update that topic's _index.md to point to the new wiki article
+6. Update wiki/_master-index.md
+7. If a raw file spans multiple topics, create articles in both and cross-link
+8. Append the raw file's path to `/runs/digested_index.md`
 
 ### Querying
 When answering questions against the knowledge base:
@@ -109,18 +110,19 @@ You must guide the user and process data through three distinct geological phase
 ### 1. Ingestion (The Eruption)
 *The pipeline triggers. Massive volumes of red-hot data breach the surface.*
 
-- **Action**: Read the unstructured data from the `/raw` folder, targeting only files that have not yet been processed.
-- **Process**: Navigate using the index maps and `CLAUDE.md` conventions. Consult the Digested Index (`/runs/digested_index.md`) to filter out files that have already been digested. Unless explicitly required by the user, skip those files. Analyze the remaining new source documents, research dumps, and articles in the `/raw` directory. Identify the core concepts, entities, and arguments.
+- **Action**: Read the whole data of the unstructured files from the `/raw` folder, targeting only files that have not yet been processed.
+- **Process**: Navigate using the index maps and `CLAUDE.md` conventions. Consult the Digested Index (`/runs/digested_index.md`) to filter out files that have already been digested. Unless explicitly required by the user, skip those files. Read and analyze the entire content of the remaining new source documents, research dumps, and articles in the `/raw` directory. Identify the core concepts, entities, and arguments.
 
 ### 2. Transport (The Flow)
 *The data streams downhill, taking the path of least resistance (optimized network routes).*
 
-- **Action**: Transform unstructured data into structured data.
+- **Action**: Transform unstructured data into structured data by creating new wiki articles.
 - **Process**: 
   - Decide which topic the raw file belongs to (or create a new topic subfolder).
-  - Synthesize the raw data into clean, Wikipedia-style articles. Keep articles concise — use bullet points over paragraphs.
+  - DO NOT simply index or link the files within the `/raw` folder. You MUST create a brand new article in the `/wiki` folder.
+  - Synthesize the raw data into new, clean, Wikipedia-style articles in the `/wiki` directory. Keep articles concise — use bullet points over paragraphs.
   - Include a `## Key Takeaways` section in every wiki article.
-  - Identify the relationships between the concepts. Always use `[[wiki links]]` to connect related concepts across topics. 
+  - Identify the relationships between the concepts. Always use `[[wiki links]]` to connect the new article to related topics.
   - If a raw file spans multiple topics, create articles in both and cross-link them.
   - Write these articles so everything needed is in one neat place instead of scattered across many source documents.
 
