@@ -1,10 +1,8 @@
-# Lava extruder skill
-
+# Lava Extruder Skill
 
 <img width="2752" height="1536" src="https://github.com/user-attachments/assets/4bfcfc4d-752c-4cb4-aa16-3e842e789aed" />
 
-This skill provides the `obsidian-vault-setup` skill for Antigravity, Gemini, and Claude agents. It allows an AI agent to automatically scaffold an AI-optimized Obsidian vault based on the "Karpathy RAG" architecture.
-
+This plugin provides the `lava-extruder` skill for Antigravity, Gemini, and Claude agents. It allows an AI agent to automatically scaffold an AI-optimized Obsidian vault based on the "Karpathy RAG" architecture.
 
 ## Features
 
@@ -15,21 +13,27 @@ This skill provides the `obsidian-vault-setup` skill for Antigravity, Gemini, an
 
 ## Installation
 
-You can install this plugin automatically using `npx`:
+You have two options for installing this plugin: automatically via NPX, or manually via Git clone.
+
+### Option 1: Install automatically via NPX (Recommended)
+
+If you have Node.js installed, you can instantly install the plugin to your global configuration directory using NPX:
 
 ```bash
 npx lava-extruder
 ```
 
-Alternatively, you can install it manually by cloning this repository into your agent's global plugin configuration folder:
+### Option 2: Install manually via Git Clone
 
-1. Navigate to your agent's global plugin configuration folder:
+If you prefer to clone the repository manually, simply place it in your agent's global plugin configuration folder:
+
+1. Navigate to your agent's global plugin directory:
    ```bash
    cd ~/.gemini/config/plugins/
-   # If the plugins directory does not exist, create it: mkdir -p ~/.gemini/config/plugins/ && cd ~/.gemini/config/plugins/
+   # If the directory doesn't exist, create it first: mkdir -p ~/.gemini/config/plugins/ && cd ~/.gemini/config/plugins/
    ```
 
-2. Clone this repository directly into the plugins folder:
+2. Clone this repository directly into the folder:
    ```bash
    git clone https://github.com/<your-username>/lava-extruder-plugin.git
    ```
@@ -40,6 +44,7 @@ Alternatively, you can install it manually by cloning this repository into your 
 
 Once installed, just navigate to any folder you'd like to turn into a vault and tell your agent:
 > *"Set up my Obsidian vault here."*
+> *"Trigger the lava extruder here."*
 
 Or, if you have an existing messy folder:
 > *"Reorganize this messy folder into a Karpathy RAG vault using the lava-extruder skill."*
