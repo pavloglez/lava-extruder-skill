@@ -1,5 +1,5 @@
 ---
-name: obsidian-vault-setup
+name: lava-extruder
 description: Sets up an AI-optimized Obsidian vault folder structure with index.md waypoints and AGENTS.md/CLAUDE.md instructions. Can create vaults from scratch or reorganize existing messy folders.
 ---
 

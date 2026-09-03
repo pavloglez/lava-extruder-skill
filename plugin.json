@@ -1,6 +1,6 @@
 {
-  "name": "obsidian-vault-setup-plugin",
-  "description": "A plugin containing the obsidian-vault-setup skill, which initializes AI-optimized Obsidian vaults using the Karpathy RAG structure with index.md maps and agent instructions.",
+  "name": "lava-extruder-plugin",
+  "description": "A plugin containing the lava-extruder skill, which initializes AI-optimized Obsidian vaults using the Karpathy RAG structure with index.md maps and agent instructions.",
   "author": {
     "name": "Open Source Contributor"
   }
