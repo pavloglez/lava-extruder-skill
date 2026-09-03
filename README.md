@@ -1,9 +1,10 @@
 # Lava extruder skill
 
+
 <img width="2752" height="1536" src="https://github.com/user-attachments/assets/4bfcfc4d-752c-4cb4-aa16-3e842e789aed" />
 
-
 This skill provides the `obsidian-vault-setup` skill for Antigravity, Gemini, and Claude agents. It allows an AI agent to automatically scaffold an AI-optimized Obsidian vault based on the "Karpathy RAG" architecture.
+
 
 ## Features
 
@@ -24,7 +25,7 @@ You can install this skill globally on your machine so that it's available for a
 
 2. Clone this repository directly into the plugins folder:
    ```bash
-   git clone https://github.com/<your-username>/obsidian-vault-setup-plugin.git
+   git clone https://github.com/<your-username>/lava-extruder-plugin.git
    ```
 
 3. Start your agent. The plugin will be automatically discovered and enabled!
@@ -35,4 +36,4 @@ Once installed, just navigate to any folder you'd like to turn into a vault and 
 > *"Set up my Obsidian vault here."*
 
 Or, if you have an existing messy folder:
-> *"Reorganize this messy folder into a Karpathy RAG vault using the obsidian-vault-setup skill."*
+> *"Reorganize this messy folder into a Karpathy RAG vault using the lava-extruder skill."*
