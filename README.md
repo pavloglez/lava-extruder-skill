@@ -8,8 +8,11 @@ This plugin provides the `lava-extruder` skill for Antigravity, Gemini, and Clau
 
 - **Automated Directory Scaffolding**: Creates `/raw`, `/wiki`, `/outputs`, and `/runs` folders, or customizes them to your needs.
 - **Index Maps (`index.md`)**: Automatically generates a "table of contents" in every directory so agents can navigate your vault programmatically.
-- **Agent Instructions (`AGENTS.md` / `CLAUDE.md`)**: Injects guidelines documenting vault conventions, folder structures, and search navigation patterns.
-- **Loop Engineering Logs**: Sets up a `/runs` directory with log files where agents can leave state and track past runs for self-improvement.
+- **Agent Instructions (`AGENTS.md` / `CLAUDE.md`)**: Injects comprehensive guidelines documenting vault conventions, folder structures, and search navigation patterns.
+- **Lava Cooling Process (Data Pipeline)**: An automated three-phase process (Eruption, Flow, Cooling Bed) that ingests raw documents, structures them into Wikipedia-style articles, and outputs deliverables.
+- **Automated Compilation**: Use the `/compile` or `/digest-new` commands to automatically read undigested files from `/raw`, synthesize them, and route them to the correct `/wiki` topics.
+- **Wiki Auditing**: Use the `/audit` or `/lint` commands to review your knowledge base for inconsistencies, broken links, or gaps.
+- **Loop Engineering Logs**: Sets up a `/runs` directory with log files (like `digested_index.md`) where agents can leave state, track past runs, and prevent duplicate processing.
 
 ## Installation
 
@@ -42,9 +45,23 @@ If you prefer to clone the repository manually, simply place it in your agent's 
 
 ## Usage
 
+### Scaffolding a Vault
+
 Once installed, just navigate to any folder you'd like to turn into a vault and tell your agent:
 > *"Set up my Obsidian vault here."*
 > *"Trigger the lava extruder here."*
 
 Or, if you have an existing messy folder:
 > *"Reorganize this messy folder into a Karpathy RAG vault using the lava-extruder skill."*
+
+### Compiling Knowledge
+
+Once your vault is set up and you've dumped source materials into the `/raw` folder, trigger the data processing pipeline:
+> *"/compile"* or *"/digest-new"*
+
+This triggers the "Lava Cooling Process", which will ingest the new documents, synthesize them into structured wiki articles in `/wiki`, and prevent re-processing them in the future.
+
+### Auditing the Vault
+
+To review your compiled knowledge base for gaps, inconsistencies, or missing cross-links:
+> *"/audit"* or *"/lint"*
