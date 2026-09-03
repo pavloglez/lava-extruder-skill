@@ -1,0 +1,23 @@
+{
+  "name": "lava-extruder",
+  "version": "1.0.0",
+  "description": "Antigravity skill plugin for creating AI-optimized Obsidian vaults.",
+  "main": "install.js",
+  "bin": {
+    "lava-extruder": "./install.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "antigravity",
+    "gemini",
+    "claude",
+    "obsidian",
+    "rag",
+    "skill",
+    "agent"
+  ],
+  "author": "Open Source Contributor",
+  "license": "MIT"
+}

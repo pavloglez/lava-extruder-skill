@@ -15,7 +15,13 @@ This skill provides the `obsidian-vault-setup` skill for Antigravity, Gemini, an
 
 ## Installation
 
-You can install this skill globally on your machine so that it's available for all your projects.
+You can install this plugin automatically using `npx`:
+
+```bash
+npx lava-extruder
+```
+
+Alternatively, you can install it manually by cloning this repository into your agent's global plugin configuration folder:
 
 1. Navigate to your agent's global plugin configuration folder:
    ```bash
