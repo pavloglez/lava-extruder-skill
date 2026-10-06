@@ -20,14 +20,26 @@ This plugin provides the `lava-extruder` skill for Antigravity, Gemini, and Clau
 
 ## Supported Formats
 
-| Format | Method | Fallback |
-|--------|--------|----------|
-| `.md`, `.txt`, `.csv`, `.json`, `.html` | Direct read | — |
-| `.pdf` | `pdftotext` | PyMuPDF → Tesseract OCR |
-| `.epub` | `pandoc` | `ebooklib` |
-| `.docx`, `.odt`, `.rtf` | `pandoc` | LibreOffice headless |
+Lava Extruder features a **Universal Document Ingestion Pipeline** inspired by Microsoft MarkItDown with local-first, zero-cost fallbacks:
 
-Scanned/image-only PDFs are automatically detected and processed via OCR. If extraction fails for any file, it is logged to `/runs/failed_extractions.md` and the pipeline continues.
+| Category | Format | Primary Method | Fallback(s) |
+|---|---|---|---|
+| **Universal** | *Any supported file* | `extract_raw.py` | Auto-detects & dispatches to specialized converters |
+| **Presentations** | `.pptx` | `extract_pptx.py` (`python-pptx`) | LibreOffice headless → pdftotext |
+| **Spreadsheets** | `.xlsx`, `.xls` | `extract_xlsx.py` (`openpyxl`) | `pandas` → stdlib XML parser → LibreOffice |
+| **Spreadsheets** | `.csv`, `.tsv` | `extract_raw.py` (Markdown table) | Direct read |
+| **Notebooks** | `.ipynb` | `extract_ipynb.py` (stdlib `json`) | Zero external dependencies |
+| **Documents** | `.pdf` | `extract_pdf.sh` (table-aware `pdfplumber`/`markitdown`) | Poppler `pdftotext` → `PyMuPDF` → Tesseract OCR |
+| **Books** | `.epub` | `extract_epub.py` (stdlib spine & Dublin Core metadata) | `pandoc` |
+| **Documents** | `.docx`, `.odt`, `.rtf` | `extract_docx.sh` (`pandoc`) | `mammoth` → `python-docx` → LibreOffice |
+| **Web Pages** | `.html`, `.htm` | `extract_html.py` (`markdownify` / `bs4`) | Built-in HTMLParser (strips script/styles) |
+| **Archives** | `.zip` | `extract_zip.py` (stdlib `zipfile`) | Recursive inner extraction & synthesis |
+| **Emails** | `.msg`, `.eml` | `extract_email.py` (`olefile` / stdlib `email`) | Extracts headers, body, & attachment lists |
+| **Audio** | `.mp3`, `.wav`, `.m4a`, `.mp4` | `extract_audio.py` (OpenAI Whisper) | `SpeechRecognition` → `ffmpeg` metadata |
+| **Images** | `.png`, `.jpg`, `.jpeg`, `.webp` | `extract_image.sh` (Tesseract OCR) | Dimension & date metadata |
+| **Plain Text** | `.md`, `.txt`, `.json`, `.yaml` | Direct read / copy | — |
+
+Scanned/image-only PDFs and standalone image notes are automatically OCR'd. If extraction fails for any file, it is logged to `/runs/failed_extractions.md` and the pipeline continues.
 
 ## Installation
 
@@ -81,13 +93,48 @@ This triggers the "Lava Cooling Process", which will ingest the new documents, s
 To review your compiled knowledge base for gaps, inconsistencies, or missing cross-links:
 > *"/audit"* or *"/lint"*
 
-## Helper Scripts
+## CLI & CI/CD Tooling
 
-The skill includes extraction scripts in `skills/lava-extruder/scripts/`:
+Lava Extruder provides both conversational agent skill triggers and direct command-line tools for CI/CD pipelines:
+
+```bash
+# Initialize / scaffold a Karpathy RAG vault directly
+lava-extruder init ./my-vault
+
+# Extract any supported document format to Markdown
+lava-extract raw/architecture-whitepaper.pdf
+# or:
+lava-extruder extract raw/metrics.xlsx
+
+# Inspect structural markers & plan large file segmentation
+lava-extruder count raw/book.extracted.md
+```
+
+## Running Tests
+
+Verify the extraction suite and vault scaffolding:
+
+```bash
+npm test
+```
+
+## Helper Scripts Catalog
+
+The skill includes modular, local-first extractors in `skills/lava-extruder/scripts/`:
 
 | Script | Purpose |
 |--------|---------|
-| `extract_pdf.sh` | PDF → text (pdftotext → PyMuPDF → Tesseract OCR) |
-| `extract_epub.sh` | EPUB → markdown (pandoc → ebooklib) |
-| `extract_docx.sh` | DOCX/ODT/RTF → markdown (pandoc → LibreOffice) |
+| `extract_raw.py` | **Universal Master Dispatcher** (`lava-extract`) — auto-detects and converts any file |
+| `extract_pdf.sh` | PDF → text/tables (`pdfplumber` / `markitdown` → `pdftotext` → `PyMuPDF` → Tesseract OCR) |
+| `extract_epub.py` | EPUB → structured markdown (stdlib spine order + Dublin Core metadata + pandoc fallback) |
+| `extract_docx.sh` | DOCX/ODT/RTF → markdown (`pandoc` → `mammoth` → `python-docx` → LibreOffice) |
+| `extract_pptx.py` | PowerPoint → markdown (slides, notes, tables, charts via `python-pptx`) |
+| `extract_xlsx.py` | Spreadsheets → markdown tables (`openpyxl` → `pandas` → stdlib XML) |
+| `extract_ipynb.py` | Jupyter Notebooks → markdown (stdlib `json`, code & markdown blocks) |
+| `extract_html.py` | Web pages → clean markdown (strips scripts, styles, boilerplate) |
+| `extract_zip.py` | ZIP archives → sandboxed recursive extraction & synthesis with zip-slip guard |
+| `extract_email.py` | Emails (.msg, .eml) → markdown (headers, message body, attachments) |
+| `extract_audio.py` | Audio transcription (OpenAI Whisper → `SpeechRecognition` → `ffmpeg`) |
+| `extract_image.sh` | Image OCR & metadata (Tesseract OCR + dimensions/dates) |
 | `count_sections.sh` | Count structural markers for segmentation plans |
+

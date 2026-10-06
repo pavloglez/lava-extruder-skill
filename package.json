@@ -1,13 +1,15 @@
 {
   "name": "lava-extruder",
-  "version": "1.0.0",
-  "description": "Antigravity skill plugin for creating AI-optimized Obsidian vaults.",
-  "main": "install.js",
+  "version": "1.1.0",
+  "description": "Antigravity skill plugin for creating AI-optimized Obsidian vaults with universal multi-format document extraction.",
+  "main": "bin/cli.js",
   "bin": {
-    "lava-extruder": "./install.js"
+    "lava-extruder": "./bin/cli.js",
+    "lava-extract": "./skills/lava-extruder/scripts/extract_raw.py"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "install-plugin": "node install.js",
+    "test": "node --test tests/*.test.js"
   },
   "keywords": [
     "antigravity",
@@ -16,7 +18,14 @@
     "obsidian",
     "rag",
     "skill",
-    "agent"
+    "agent",
+    "markitdown",
+    "extraction",
+    "pdf",
+    "epub",
+    "pptx",
+    "xlsx",
+    "ipynb"
   ],
   "author": "Open Source Contributor",
   "license": "MIT"

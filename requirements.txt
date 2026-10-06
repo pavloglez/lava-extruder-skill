@@ -1,0 +1,19 @@
+# Core dependencies for universal document extraction (Lava Extruder)
+markitdown>=0.0.1a4
+openpyxl>=3.1.2
+python-pptx>=0.6.23
+markdownify>=0.13.1
+beautifulsoup4>=4.12.3
+olefile>=0.46
+
+# Enhanced PDF & Office document processing
+pdfplumber>=0.11.0
+PyMuPDF>=1.24.0
+mammoth>=1.8.0
+python-docx>=1.1.0
+pandas>=2.2.0
+
+# Optional Audio Transcription
+# openai-whisper>=20231117
+# SpeechRecognition>=3.10.0
+# pydub>=0.25.1
