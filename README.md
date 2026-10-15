@@ -84,12 +84,14 @@ Once installed, just navigate to any folder you'd like to turn into a vault and 
 Or, if you have an existing messy folder:
 > *"Reorganize this messy folder into a Karpathy RAG vault using the lava-extruder skill."*
 
+The agent will scaffold the folders, write `SCHEMA.md` (customized to your domain), `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`, index maps, and the session hot cache. Use `lava-extruder init ./my-vault --git` if you want git history on every digest batch.
+
 ### Compiling Knowledge
 
 Once your vault is set up and you've dumped source materials into the `/raw` folder, trigger the data processing pipeline:
 > *"/compile"* or *"/digest-new"*
 
-This triggers the "Lava Cooling Process", which will ingest the new documents, synthesize them into structured wiki articles in `/wiki`, cross-link related content from different sources, and prevent re-processing them in the future.
+This triggers the "Lava Cooling Process", which will ingest the new documents, synthesize them into structured wiki articles in `/wiki`, cross-link related content from different sources, and prevent re-processing them in the future (digested files are tracked by path **and SHA-256** in `/runs/digested_index.md`, so re-drops are skipped and changed sources are flagged as drift).
 
 ### Auditing the Vault
 
@@ -103,6 +105,8 @@ Lava Extruder provides both conversational agent skill triggers and direct comma
 ```bash
 # Initialize / scaffold a Karpathy RAG vault directly
 lava-extruder init ./my-vault
+# Same, plus git init for digest-batch history
+lava-extruder init ./my-vault --git
 
 # Extract any supported document format to Markdown
 lava-extract raw/architecture-whitepaper.pdf
@@ -111,6 +115,9 @@ lava-extruder extract raw/metrics.xlsx
 
 # Inspect structural markers & plan large file segmentation
 lava-extruder count raw/book.extracted.md
+
+# Deterministic vault integrity lint
+lava-extruder lint ./my-vault
 ```
 
 ## Running Tests
