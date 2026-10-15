@@ -6,17 +6,20 @@ This plugin provides the `lava-extruder` skill for Antigravity, Gemini, and Clau
 
 ## Features
 
-- **Automated Directory Scaffolding**: Creates `/raw`, `/wiki`, `/outputs`, and `/runs` folders, or customizes them to your needs.
+- **Automated Directory Scaffolding**: Creates `/raw`, `/wiki`, `/outputs`, and `/runs` folders, or customizes them to your needs. Also writes `SCHEMA.md` (the vault governance contract), `runs/hot.md` (session continuity cache), and self-contained `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` so any agent can run the vault.
+- **`--git` option**: `lava-extruder init <dir> --git` also runs `git init` so every digest batch has an undo point and temporal history.
 - **Index Maps (`index.md`)**: Automatically generates a "table of contents" in every directory so agents can navigate your vault programmatically.
 - **Agent Instructions (`AGENTS.md` / `CLAUDE.md`)**: Injects comprehensive guidelines documenting vault conventions, folder structures, and search navigation patterns.
 - **Lava Cooling Process (Data Pipeline)**: An automated four-phase process (Eruption, Flow, Cooling Bed, Crystallization) that ingests raw documents, structures them into Wikipedia-style articles, cross-links related content across sources, and outputs deliverables.
 - **Automated Compilation**: Use the `/compile` or `/digest-new` commands to automatically read undigested files from `/raw`, synthesize them, and route them to the correct `/wiki` topics.
-- **Wiki Auditing**: Use the `/audit` or `/lint` commands to review your knowledge base for inconsistencies, broken links, or gaps.
+- **Querying**: `/query <question>` answers from the compiled wiki with `[[wiki link]]` citations, respecting `confidence`/`contested` frontmatter flags, and files substantial answers to `outputs/queries/`.
+- **Wiki Auditing**: Use the `/audit` or `/lint` commands to review your knowledge base for inconsistencies, broken links, or gaps — or run `lava-extruder lint <vault_dir>` directly for a deterministic, no-LLM integrity check.
 - **Loop Engineering Logs**: Sets up a `/runs` directory with log files (like `digested_index.md`) where agents can leave state, track past runs, and prevent duplicate processing.
-- **Leave Nothing Behind**: Every concept, no matter how small or tangential, gets its own dedicated topic folder and article. Nothing is dropped or lumped into generic catch-all categories.
+- **Representation, Not Micro-paging**: Every substantive concept gets representation in the wiki; minor mentions fold into existing articles instead of minting micro-pages, keeping the graph navigable (see Page Thresholds).
 - **Segmented Extraction (Stream-to-disk)**: Safely processes massive documents (thousands of lines) by extracting and writing wiki articles segment-by-segment immediately. It **does not** accumulate large files into a single context-breaking WIP file, preventing silent data loss.
 - **Completeness Verification Gate**: Automatically audits section and line coverage to ensure 100% completeness before marking any large file as fully digested.
-- **Cross-File Association**: After processing a batch of files, the Crystallization phase automatically discovers connections between articles from different sources, adds cross-links, and merges overlapping content.
+- **Page Thresholds**: Articles are created only when a concept is central to a source or appears in 2+ sources; minor mentions fold into existing articles; articles over ~200 lines get split. No `misc/` catch-alls.
+- **Cross-File Association**: After processing a batch, the Crystallization phase automatically discovers connections between articles from different sources, adds bidirectional cross-links, merges duplicates, and splits overgrown articles.
 
 ## Supported Formats
 
@@ -27,7 +30,7 @@ Lava Extruder features a **Universal Document Ingestion Pipeline** inspired by M
 | **Universal** | *Any supported file* | `extract_raw.py` | Auto-detects & dispatches to specialized converters |
 | **Presentations** | `.pptx` | `extract_pptx.py` (`python-pptx`) | LibreOffice headless → pdftotext |
 | **Spreadsheets** | `.xlsx`, `.xls` | `extract_xlsx.py` (`openpyxl`) | `pandas` → stdlib XML parser → LibreOffice |
-| **Spreadsheets** | `.csv`, `.tsv` | `extract_raw.py` (Markdown table) | Direct read |
+| **Spreadsheets** | `.csv`, `.tsv` | `extract_raw.py` (streamed Markdown table) | Direct read |
 | **Notebooks** | `.ipynb` | `extract_ipynb.py` (stdlib `json`) | Zero external dependencies |
 | **Documents** | `.pdf` | `extract_pdf.sh` (table-aware `pdfplumber`/`markitdown`) | Poppler `pdftotext` → `PyMuPDF` → Tesseract OCR |
 | **Books** | `.epub` | `extract_epub.py` (stdlib spine & Dublin Core metadata) | `pandoc` |
@@ -137,4 +140,5 @@ The skill includes modular, local-first extractors in `skills/lava-extruder/scri
 | `extract_audio.py` | Audio transcription (OpenAI Whisper → `SpeechRecognition` → `ffmpeg`) |
 | `extract_image.sh` | Image OCR & metadata (Tesseract OCR + dimensions/dates) |
 | `count_sections.sh` | Count structural markers for segmentation plans |
+| `lint_vault.py` | Deterministic vault integrity lint (`lava-extruder lint`) |
 

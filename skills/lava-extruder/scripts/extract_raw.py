@@ -27,41 +27,45 @@ import os
 import shutil
 import subprocess
 import mimetypes
+import hashlib
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def format_csv_as_markdown(input_path: str, output_path: str) -> bool:
-    """Format CSV / TSV into an aligned Markdown table."""
+    """Format CSV / TSV into an aligned Markdown table (streamed, low memory)."""
     import csv
     delimiter = "\t" if input_path.lower().endswith(".tsv") else ","
-    rows = []
     try:
-        with open(input_path, "r", encoding="utf-8", errors="ignore") as f:
+        with open(input_path, "r", encoding="utf-8", errors="ignore", newline="") as f:
             reader = csv.reader(f, delimiter=delimiter)
+            rows = []
             for r in reader:
                 if any(c.strip() for c in r):
                     rows.append([c.strip().replace("\n", " ") for c in r])
-        if not rows:
-            return False
-
-        col_count = max(len(r) for r in rows)
-        padded = [r + [""] * (col_count - len(r)) for r in rows]
-        col_widths = [max(len(str(r[i])) for r in padded) for i in range(col_count)]
-        col_widths = [max(w, 3) for w in col_widths]
-
-        lines = [f"# {os.path.splitext(os.path.basename(input_path))[0]}\n"]
-        header = padded[0]
-        lines.append("| " + " | ".join(header[i].ljust(col_widths[i]) for i in range(col_count)) + " |")
-        lines.append("| " + " | ".join("-" * col_widths[i] for i in range(col_count)) + " |")
-        for r in padded[1:]:
-            lines.append("| " + " | ".join(r[i].ljust(col_widths[i]) for i in range(col_count)) + " |")
-
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines) + "\n")
-        return True
+                    if len(rows) > 200000:
+                        print("Warning: CSV exceeded 200k rows; truncating table.", file=sys.stderr)
+                        break
     except Exception:
         return False
+    if not rows:
+        return False
+
+    col_count = max(len(r) for r in rows)
+    padded = [r + [""] * (col_count - len(r)) for r in rows]
+    col_widths = [max(len(str(r[i])) for r in padded) for i in range(col_count)]
+    col_widths = [max(w, 3) for w in col_widths]
+
+    out = [f"# {os.path.splitext(os.path.basename(input_path))[0]}\n"]
+    header = padded[0]
+    out.append("| " + " | ".join(header[i].ljust(col_widths[i]) for i in range(col_count)) + " |")
+    out.append("| " + " | ".join("-" * col_widths[i] for i in range(col_count)) + " |")
+    for r in padded[1:]:
+        out.append("| " + " | ".join(r[i].ljust(col_widths[i]) for i in range(col_count)) + " |")
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(out) + "\n")
+    return True
 
 
 def try_markitdown(input_path: str, output_path: str) -> bool:
@@ -108,6 +112,15 @@ def run_script(script_name: str, input_path: str, output_path: str) -> bool:
         return False
 
 
+def sha256_of_file(path: str) -> str:
+    """Return hex sha256 digest of a file, streamed in chunks."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: extract_raw.py <input_file> [output_file]", file=sys.stderr)
@@ -127,13 +140,13 @@ def main():
     # 1. Plain text formats that can be formatted or copied directly
     if ext in (".csv", ".tsv"):
         if format_csv_as_markdown(input_path, output_path):
-            lines = len(open(output_path).readlines())
+            lines = sum(1 for _ in open(output_path))
             print(f"Done. Extracted {lines} lines to {output_path} (CSV table)", file=sys.stderr)
             sys.exit(0)
 
     if ext in (".md", ".txt", ".json", ".yaml", ".yml"):
         shutil.copyfile(input_path, output_path)
-        lines = len(open(output_path, "r", encoding="utf-8", errors="ignore").readlines())
+        lines = sum(1 for _ in open(output_path, "r", encoding="utf-8", errors="ignore"))
         print(f"Done. Copied {lines} lines to {output_path} (direct read)", file=sys.stderr)
         sys.exit(0)
 
@@ -177,7 +190,7 @@ def main():
             sys.exit(1)
 
     if success and os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-        lines = len(open(output_path, "r", encoding="utf-8", errors="ignore").readlines())
+        lines = sum(1 for _ in open(output_path, "r", encoding="utf-8", errors="ignore"))
         print(f"Done. Successfully extracted {lines} lines to {output_path}", file=sys.stderr)
         sys.exit(0)
     else:

@@ -8,12 +8,14 @@ const { spawnSync } = require('child_process');
 const CLI_PATH = path.join(__dirname, '..', 'bin', 'cli.js');
 const SCRIPT_DIR = path.join(__dirname, '..', 'skills', 'lava-extruder', 'scripts');
 const EXTRACT_RAW = path.join(SCRIPT_DIR, 'extract_raw.py');
+const LINT_VAULT = path.join(SCRIPT_DIR, 'lint_vault.py');
 
 test('CLI: --help returns usage information', () => {
   const res = spawnSync('node', [CLI_PATH, '--help'], { encoding: 'utf-8' });
   assert.equal(res.status, 0);
   assert.match(res.stdout, /Lava Extruder CLI/);
   assert.match(res.stdout, /lava-extruder init/);
+  assert.match(res.stdout, /lava-extruder lint/);
 });
 
 test('CLI: init creates complete Karpathy RAG vault structure', () => {
@@ -29,11 +31,73 @@ test('CLI: init creates complete Karpathy RAG vault structure', () => {
 
     // Verify navigation and agent files
     assert.ok(fs.existsSync(path.join(tmpDir, 'index.md')), 'index.md should exist');
+    assert.ok(fs.existsSync(path.join(tmpDir, 'SCHEMA.md')), 'SCHEMA.md should exist');
     assert.ok(fs.existsSync(path.join(tmpDir, 'wiki', '_master-index.md')), 'wiki/_master-index.md should exist');
     assert.ok(fs.existsSync(path.join(tmpDir, 'runs', 'logs.md')), 'runs/logs.md should exist');
     assert.ok(fs.existsSync(path.join(tmpDir, 'runs', 'digested_index.md')), 'runs/digested_index.md should exist');
+    assert.ok(fs.existsSync(path.join(tmpDir, 'runs', 'hot.md')), 'runs/hot.md should exist');
     assert.ok(fs.existsSync(path.join(tmpDir, 'AGENTS.md')), 'AGENTS.md should exist');
     assert.ok(fs.existsSync(path.join(tmpDir, 'CLAUDE.md')), 'CLAUDE.md should exist');
+    assert.ok(fs.existsSync(path.join(tmpDir, 'GEMINI.md')), 'GEMINI.md should exist');
+
+    const digested = fs.readFileSync(path.join(tmpDir, 'runs', 'digested_index.md'), 'utf-8');
+    assert.match(digested, /SHA-256/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('CLI: init --git initializes a git repository', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lava-test-git-'));
+  try {
+    const res = spawnSync('node', [CLI_PATH, 'init', tmpDir, '--git'], { encoding: 'utf-8' });
+    assert.equal(res.status, 0);
+    assert.ok(fs.existsSync(path.join(tmpDir, '.git', 'HEAD')), '.git/HEAD should exist');
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('Lint: clean vault reports no issues', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lava-test-lint-clean-'));
+  try {
+    spawnSync('node', [CLI_PATH, 'init', tmpDir], { encoding: 'utf-8' });
+    // Add one linked article so hot.md/orphan checks pass trivially
+    fs.writeFileSync(path.join(tmpDir, 'wiki', 'concept-a.md'), '---\ntitle: "Concept A"\ncreated: 2026-01-01\nupdated: 2026-01-01\ntags: [concept]\nsources: ["raw/source.pdf"]\n---\n\n# Concept A\n\nSee [[Concept B]] and [[Concept C]].\n', 'utf-8');
+    fs.writeFileSync(path.join(tmpDir, 'wiki', 'concept-b.md'), '---\ntitle: "Concept B"\ncreated: 2026-01-01\nupdated: 2026-01-01\ntags: [concept]\nsources: ["raw/source.pdf"]\n---\n\n# Concept B\n\nSee [[Concept A]] and [[Concept C]].\n', 'utf-8');
+    fs.writeFileSync(path.join(tmpDir, 'wiki', 'concept-c.md'), '---\ntitle: "Concept C"\ncreated: 2026-01-01\nupdated: 2026-01-01\ntags: [concept]\nsources: ["raw/source.pdf"]\n---\n\n# Concept C\n\nSee [[Concept A]] and [[Concept B]].\n', 'utf-8');
+
+    const res = spawnSync('python3', [LINT_VAULT, tmpDir], { encoding: 'utf-8' });
+    assert.equal(res.status, 0, `lint should be clean, got: ${res.stdout}`);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('Lint: broken wikilink and orphan are detected', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lava-test-lint-broken-'));
+  try {
+    spawnSync('node', [CLI_PATH, 'init', tmpDir], { encoding: 'utf-8' });
+    fs.writeFileSync(path.join(tmpDir, 'wiki', 'lonely.md'), '---\ntitle: "Lonely"\ncreated: 2026-01-01\nupdated: 2026-01-01\ntags: [concept]\nsources: ["raw/source.pdf"]\n---\n\n# Lonely\n\nLinks to [[Nonexistent Page]].\n', 'utf-8');
+
+    const res = spawnSync('python3', [LINT_VAULT, tmpDir], { encoding: 'utf-8' });
+    assert.notEqual(res.status, 0, 'lint should flag issues');
+    assert.match(res.stdout, /broken wikilink/);
+    assert.match(res.stdout, /orphan/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('Lint: missing frontmatter fields flagged', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lava-test-lint-fm-'));
+  try {
+    spawnSync('node', [CLI_PATH, 'init', tmpDir], { encoding: 'utf-8' });
+    fs.writeFileSync(path.join(tmpDir, 'wiki', 'bad.md'), '# Bad\n\nNo frontmatter here.\n', 'utf-8');
+
+    const res = spawnSync('python3', [LINT_VAULT, tmpDir], { encoding: 'utf-8' });
+    assert.notEqual(res.status, 0);
+    assert.match(res.stdout, /missing YAML frontmatter/);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
