@@ -6,8 +6,8 @@ Usage: extract_zip.py <input.zip> [output.md]
 Features:
 1. Safely inspects and extracts archive contents into temporary storage.
 2. Filters out system metadata files (__MACOSX, .DS_Store, Thumbs.db, .git).
-3. Recursively converts all supported inner files (markdown, text, PDFs, docs, spreadsheets, code, notebooks).
-4. Assembles content into a unified Markdown document with '## File: <relative_path>' sections.
+3. Recursively converts all inner files using extract_raw.py.
+4. Generates a comprehensive '## Extraction Manifest' table tracking every member file.
 5. Cleans up temporary files automatically.
 """
 
@@ -40,11 +40,14 @@ def convert_zip(input_path: str, output_path: str) -> None:
         sys.exit(1)
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    extract_raw_script = os.path.join(script_dir, "extract_raw.py")
     zip_basename = os.path.basename(input_path)
     md_sections = [f"# Archive: {zip_basename}\n"]
 
     MAX_UNCOMPRESSED_BYTES = 500 * 1024 * 1024  # 500 MB limit
     MAX_FILE_COUNT = 10000
+
+    manifest_rows = []
 
     with tempfile.TemporaryDirectory() as tmpdir:
         real_tmpdir = os.path.realpath(tmpdir)
@@ -59,15 +62,18 @@ def convert_zip(input_path: str, output_path: str) -> None:
                     target_path = os.path.realpath(os.path.join(tmpdir, member))
                     if not target_path.startswith(real_tmpdir + os.sep) and target_path != real_tmpdir:
                         print(f"Warning: Skipping dangerous zip path: {member}", file=sys.stderr)
+                        manifest_rows.append((member, member_info.file_size, "skipped", "Path traversal security guard"))
                         continue
 
                     # Reject symlinks (prevent link following attacks)
                     is_symlink = (member_info.external_attr >> 16) & 0o120000 == 0o120000
                     if is_symlink:
                         print(f"Warning: Skipping symlink inside zip: {member}", file=sys.stderr)
+                        manifest_rows.append((member, member_info.file_size, "skipped", "Symlink security guard"))
                         continue
 
                     if should_ignore(member):
+                        manifest_rows.append((member, member_info.file_size, "skipped", "System/meta file ignored"))
                         continue
 
                     # Guard against zip bombs
@@ -96,52 +102,56 @@ def convert_zip(input_path: str, output_path: str) -> None:
                 if should_ignore(rel_file_path):
                     continue
 
+                size = os.path.getsize(full_file_path)
                 ext = os.path.splitext(filename)[1].lower()
 
                 # Direct text files
                 if ext in TEXT_EXTENSIONS:
                     try:
-                        with open(full_file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        with open(full_file_path, "r", encoding="utf-8", errors="replace") as f:
                             content = f.read().strip()
                         if content:
                             md_sections.append(f"## File: {rel_file_path}\n\n{content}\n\n---\n")
                             extracted_count += 1
-                    except Exception:
-                        pass
+                            manifest_rows.append((rel_file_path, size, "ok", "Text file"))
+                        else:
+                            manifest_rows.append((rel_file_path, size, "ok", "Empty file"))
+                    except Exception as e:
+                        manifest_rows.append((rel_file_path, size, "failed", f"Read error: {e}"))
                 else:
-                    # Check if there is an extractor script for this format
-                    extractor_map = {
-                        ".ipynb": "extract_ipynb.py",
-                        ".epub": "extract_epub.py",
-                        ".html": "extract_html.py",
-                        ".htm": "extract_html.py",
-                        ".docx": "extract_docx.sh",
-                        ".odt": "extract_docx.sh",
-                        ".rtf": "extract_docx.sh",
-                        ".pdf": "extract_pdf.sh",
-                        ".pptx": "extract_pptx.py",
-                        ".xlsx": "extract_xlsx.py",
-                        ".xls": "extract_xlsx.py",
-                        ".eml": "extract_email.py",
-                        ".msg": "extract_email.py",
-                    }
-                    if ext in extractor_map:
-                        script = os.path.join(script_dir, extractor_map[ext])
-                        if os.path.exists(script):
-                            sub_out = full_file_path + ".extracted.md"
-                            cmd = ["python3", script, full_file_path, sub_out] if script.endswith(".py") else ["bash", script, full_file_path, sub_out]
-                            try:
-                                res = subprocess.run(cmd, capture_output=True, timeout=60)
-                                if os.path.exists(sub_out):
-                                    with open(sub_out, "r", encoding="utf-8", errors="ignore") as f:
-                                        content = f.read().strip()
-                                    if content:
-                                        md_sections.append(f"## File: {rel_file_path}\n\n{content}\n\n---\n")
-                                        extracted_count += 1
-                            except Exception:
-                                pass
+                    # Non-text: dispatch through extract_raw.py
+                    sub_out = full_file_path + ".extracted.md"
+                    cmd = [sys.executable, extract_raw_script, full_file_path, sub_out]
+                    try:
+                        res = subprocess.run(cmd, capture_output=True, timeout=120, text=True)
+                        if res.returncode == 0 and os.path.exists(sub_out) and os.path.getsize(sub_out) > 0:
+                            with open(sub_out, "r", encoding="utf-8", errors="replace") as f:
+                                content = f.read().strip()
+                            if content:
+                                md_sections.append(f"## File: {rel_file_path}\n\n{content}\n\n---\n")
+                                extracted_count += 1
+                                manifest_rows.append((rel_file_path, size, "ok", f"Converted via {ext} extractor"))
+                            else:
+                                manifest_rows.append((rel_file_path, size, "ok", "Extracted empty"))
+                        else:
+                            err_msg = res.stderr.strip().splitlines()[-1] if res.stderr else "Extractor returned non-zero"
+                            manifest_rows.append((rel_file_path, size, "failed", err_msg))
+                    except Exception as e:
+                        manifest_rows.append((rel_file_path, size, "failed", f"Timeout or error: {e}"))
+
+    # Append the Extraction Manifest table
+    manifest_md = ["\n## Extraction Manifest\n"]
+    manifest_md.append("| File | Size (Bytes) | Status | Notes |")
+    manifest_md.append("|---|---|---|---|")
+    for row in manifest_rows:
+        file_col, size_col, status_col, notes_col = row
+        clean_notes = str(notes_col).replace("|", "/")
+        manifest_md.append(f"| {file_col} | {size_col} | {status_col} | {clean_notes} |")
+
+    md_sections.append("\n".join(manifest_md))
 
     final_md = "\n".join(md_sections).strip() + "\n"
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(final_md)
 

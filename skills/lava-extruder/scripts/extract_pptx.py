@@ -1,84 +1,95 @@
 #!/usr/bin/env python3
 """
-extract_pptx.py — Extract PowerPoint presentations (.pptx) to structured Markdown.
+extract_pptx.py — Extract PowerPoint presentations (.pptx) to clean Markdown.
 Usage: extract_pptx.py <input.pptx> [output.md]
 
 Features:
-1. Extracts slide titles, bullet points, text boxes, and group shapes.
-2. Converts tables to aligned GitHub-Flavored Markdown tables.
-3. Converts chart series/categories to Markdown tables.
-4. Extracts speaker notes under '### Notes:'.
-5. Fallback via LibreOffice headless conversion to PDF if python-pptx is not installed.
+1. Extracts slide titles, bullet points, numbered lists, and paragraph text.
+2. Formats tables into aligned GitHub-Flavored Markdown.
+3. Formats embedded charts (categories and series data) into Markdown tables.
+4. Extracts speaker notes and detects hidden slides.
+5. Captures image shapes and visual element anchors.
 """
 
 import sys
 import os
-import re
-import html
-import subprocess
-import tempfile
+
+try:
+    import pptx
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+except ImportError:
+    pptx = None
 
 
 def convert_table_to_markdown(table) -> str:
-    """Convert a python-pptx Table object into a GitHub-Flavored Markdown table."""
-    rows_data = []
+    """Convert a PPTX Table shape into a Markdown table."""
+    rows = []
     for row in table.rows:
-        row_cells = []
+        row_text = []
         for cell in row.cells:
-            cell_text = cell.text.strip().replace("\n", " ")
-            row_cells.append(cell_text)
-        rows_data.append(row_cells)
+            text = cell.text.strip().replace("\n", " ")
+            row_text.append(text)
+        if any(row_text):
+            rows.append(row_text)
 
-    if not rows_data:
+    if not rows:
         return ""
 
-    col_count = max(len(r) for r in rows_data)
+    col_count = max(len(r) for r in rows)
+    padded_rows = [r + [""] * (col_count - len(r)) for r in rows]
+
+    col_widths = [max(len(str(r[i])) for r in padded_rows) for i in range(col_count)]
+    col_widths = [max(w, 3) for w in col_widths]
+
     md_lines = []
-    header = rows_data[0]
-    padded_header = header + [""] * (col_count - len(header))
-    md_lines.append("| " + " | ".join(padded_header) + " |")
-    md_lines.append("| " + " | ".join(["---"] * col_count) + " |")
+    header = padded_rows[0]
+    md_lines.append("| " + " | ".join(header[i].ljust(col_widths[i]) for i in range(col_count)) + " |")
+    md_lines.append("| " + " | ".join("-" * col_widths[i] for i in range(col_count)) + " |")
 
-    for row in rows_data[1:]:
-        padded_row = row + [""] * (col_count - len(row))
-        md_lines.append("| " + " | ".join(padded_row) + " |")
+    for row in padded_rows[1:]:
+        md_lines.append("| " + " | ".join(row[i].ljust(col_widths[i]) for i in range(col_count)) + " |")
 
-    return "\n" + "\n".join(md_lines) + "\n\n"
+    return "\n".join(md_lines)
 
 
 def convert_chart_to_markdown(chart) -> str:
-    """Convert a python-pptx Chart object into a Markdown table."""
+    """Extract chart title, categories, and series data into a Markdown table."""
+    md_lines = []
+    title = "Chart Data"
+    if chart.has_title and chart.chart_title.has_text_frame:
+        title = chart.chart_title.text_frame.text.strip() or title
+    md_lines.append(f"**{title}**\n")
+
     try:
-        title_str = ""
-        if chart.has_title and chart.chart_title.has_text_frame:
-            title_str = f": {chart.chart_title.text_frame.text.strip()}"
+        categories = [c.label for c in chart.plots[0].categories] if chart.plots else []
+        series = chart.series
+        if not categories or not series:
+            return ""
 
-        categories = [c.label for c in chart.plots[0].categories]
-        series_list = list(chart.series)
-        series_names = [s.name for s in series_list]
-
-        if not categories or not series_list:
-            return f"\n\n### Chart{title_str}\n\n"
-
-        header = ["Category"] + series_names
+        header = ["Category"] + [s.name or f"Series {i+1}" for i, s in enumerate(series)]
         rows = [header]
 
-        series_values = [list(s.values) for s in series_list]
-        for idx, cat in enumerate(categories):
+        for cat_idx, cat in enumerate(categories):
             row = [str(cat)]
-            for s_vals in series_values:
-                row.append(str(s_vals[idx]) if idx < len(s_vals) else "")
+            for s in series:
+                val = s.values[cat_idx] if cat_idx < len(s.values) else ""
+                row.append(str(val) if val is not None else "")
             rows.append(row)
 
         col_count = len(header)
-        md = [f"\n\n### Chart{title_str}\n"]
-        md.append("| " + " | ".join(rows[0]) + " |")
-        md.append("| " + " | ".join(["---"] * col_count) + " |")
+        col_widths = [max(len(str(r[i])) for r in rows) for i in range(col_count)]
+        col_widths = [max(w, 3) for w in col_widths]
+
+        md_table = []
+        md_table.append("| " + " | ".join(rows[0][i].ljust(col_widths[i]) for i in range(col_count)) + " |")
+        md_table.append("| " + " | ".join("-" * col_widths[i] for i in range(col_count)) + " |")
         for r in rows[1:]:
-            md.append("| " + " | ".join(r) + " |")
-        return "\n".join(md) + "\n\n"
+            md_table.append("| " + " | ".join(r[i].ljust(col_widths[i]) for i in range(col_count)) + " |")
+
+        md_lines.append("\n".join(md_table))
+        return "\n".join(md_lines)
     except Exception:
-        return "\n\n[Chart]\n\n"
+        return ""
 
 
 def convert_pptx(input_path: str, output_path: str) -> None:
@@ -86,27 +97,8 @@ def convert_pptx(input_path: str, output_path: str) -> None:
         print(f"Error: File not found: {input_path}", file=sys.stderr)
         sys.exit(1)
 
-    # Check for python-pptx
-    try:
-        import pptx
-    except ImportError:
-        # Fallback via LibreOffice headless -> pdf -> pdftotext
-        if subprocess.run(["which", "libreoffice"], capture_output=True).returncode == 0:
-            print("python-pptx not found. Converting via LibreOffice fallback...", file=sys.stderr)
-            with tempfile.TemporaryDirectory() as tmpdir:
-                cmd = ["libreoffice", "--headless", "--convert-to", "pdf", "--outdir", tmpdir, input_path]
-                res = subprocess.run(cmd, capture_output=True)
-                pdf_name = os.path.splitext(os.path.basename(input_path))[0] + ".pdf"
-                pdf_path = os.path.join(tmpdir, pdf_name)
-                if os.path.exists(pdf_path):
-                    txt_cmd = ["pdftotext", "-layout", pdf_path, output_path]
-                    subprocess.run(txt_cmd, capture_output=True)
-                    if os.path.exists(output_path) and os.path.getsize(output_path) > 10:
-                        lines = len(open(output_path, "r", encoding="utf-8", errors="ignore").readlines())
-                        print(f"Done. Extracted {lines} lines to {output_path} via LibreOffice", file=sys.stderr)
-                        return
-
-        print("Error: python-pptx is required to parse presentations.", file=sys.stderr)
+    if pptx is None:
+        print("Error: python-pptx is not installed.", file=sys.stderr)
         print("Install it with: pip install python-pptx", file=sys.stderr)
         sys.exit(1)
 
@@ -121,7 +113,19 @@ def convert_pptx(input_path: str, output_path: str) -> None:
             slide_title = slide.shapes.title.text.strip()
             title_shape = slide.shapes.title
 
-        title_header = f"## Slide {slide_idx}: {slide_title}" if slide_title else f"## Slide {slide_idx}"
+        is_hidden = False
+        try:
+            if slide._element.get("show") == "0":
+                is_hidden = True
+        except Exception:
+            pass
+
+        hidden_prefix = "[Hidden Slide] " if is_hidden else ""
+        if slide_title:
+            title_header = f"## Slide {slide_idx}: {hidden_prefix}{slide_title}"
+        else:
+            title_header = f"## Slide {slide_idx}{(' (' + hidden_prefix.strip() + ')') if is_hidden else ''}"
+
         md_output.append(title_header)
 
         slide_content = []
@@ -142,6 +146,15 @@ def convert_pptx(input_path: str, output_path: str) -> None:
                     slide_content.append(chart_md)
                 return
 
+            # Pictures / Images
+            try:
+                if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
+                    name = getattr(shape, "name", "") or f"Image on Slide {slide_idx}"
+                    slide_content.append(f"![{name}](slide-{slide_idx}-image)")
+                    return
+            except Exception:
+                pass
+
             # Text frames (skip title shape as it is already in the header)
             if shape.has_text_frame and shape != title_shape:
                 for para in shape.text_frame.paragraphs:
@@ -152,9 +165,12 @@ def convert_pptx(input_path: str, output_path: str) -> None:
                         slide_content.append(bullet)
 
             # Group shapes
-            if shape.shape_type == pptx.enum.shapes.MSO_SHAPE_TYPE.GROUP:
-                for subshape in shape.shapes:
-                    extract_shape(subshape)
+            try:
+                if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
+                    for subshape in shape.shapes:
+                        extract_shape(subshape)
+            except Exception:
+                pass
 
         # Sort shapes top-to-bottom, left-to-right
         sorted_shapes = sorted(
@@ -176,6 +192,7 @@ def convert_pptx(input_path: str, output_path: str) -> None:
         md_output.append("\n---\n")
 
     final_md = "\n\n".join(md_output).strip()
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(final_md + "\n")
 

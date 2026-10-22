@@ -5,9 +5,9 @@ Usage: extract_html.py <input.html> [output.md]
 
 Features:
 1. Strips noisy web elements (<script>, <style>, <nav>, <footer>, <header>, <aside>, <svg>, <iframe>).
-2. Preserves semantic document structure: headings, lists, tables, blockquotes, code blocks, links.
+2. Preserves semantic document structure: headings, lists, tables, blockquotes, code blocks, links, image alt text.
 3. Uses markdownify / BeautifulSoup4 if installed, with a zero-dependency HTMLParser fallback.
-4. Reduces LLM token bloat by up to 80-90% compared to raw HTML.
+4. Reduces LLM token bloat by up to 80-90% compared to raw HTML while retaining critical information.
 """
 
 import sys
@@ -22,13 +22,13 @@ def clean_html_string(raw_html: str) -> str:
     cleaned = re.sub(r"<(script|style|noscript|svg|iframe)[^>]*>.*?</\1>", "", raw_html, flags=re.DOTALL | re.IGNORECASE)
     # Remove header, footer, nav, aside blocks that usually contain UI boilerplate
     cleaned = re.sub(r"<(nav|footer|aside)[^>]*>.*?</\1>", "", cleaned, flags=re.DOTALL | re.IGNORECASE)
-    # Remove inline base64 image data strings to avoid huge lines
-    cleaned = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+', '', cleaned)
+    # Replace inline base64 image data strings to avoid megabyte-long lines while preserving img tag
+    cleaned = re.sub(r'src=["\']data:image/[^;]+;base64,[A-Za-z0-9+/=]+["\']', 'src="inline-image-data"', cleaned)
     return cleaned
 
 
 class FallbackHtmlToMarkdown(HTMLParser):
-    """Zero-dependency HTML to Markdown parser."""
+    """Zero-dependency HTML to Markdown parser preserving text, tables, links, and images."""
 
     def __init__(self):
         super().__init__()
@@ -40,9 +40,12 @@ class FallbackHtmlToMarkdown(HTMLParser):
         self.table_rows = []
         self.current_row = []
         self.current_cell = []
+        self.current_link = None
 
     def handle_starttag(self, tag, attrs):
         tag = tag.lower()
+        attr_dict = dict(attrs)
+
         if tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
             level = int(tag[1])
             self.result.append(f"\n\n{'#' * level} ")
@@ -86,6 +89,17 @@ class FallbackHtmlToMarkdown(HTMLParser):
             self.current_cell = []
         elif tag == "hr":
             self.result.append("\n\n---\n\n")
+        elif tag == "a":
+            href = attr_dict.get("href", "")
+            if href and not href.startswith("javascript:"):
+                self.current_link = href
+                self.result.append("[")
+        elif tag == "img":
+            alt = attr_dict.get("alt", "").strip() or "Image"
+            src = attr_dict.get("src", "").strip()
+            self.result.append(f" ![{alt}]({src}) ")
+        elif tag == "figcaption":
+            self.result.append("\n*Caption: ")
 
     def handle_endtag(self, tag):
         tag = tag.lower()
@@ -124,6 +138,12 @@ class FallbackHtmlToMarkdown(HTMLParser):
                     rest = formatted_rows[1:]
                     table_md = "\n\n" + "\n".join([header, separator] + rest) + "\n\n"
                     self.result.append(table_md)
+        elif tag == "a":
+            if self.current_link:
+                self.result.append(f"]({self.current_link})")
+                self.current_link = None
+        elif tag == "figcaption":
+            self.result.append("*\n")
 
     def handle_data(self, data):
         if self.in_table:
@@ -142,64 +162,70 @@ def convert_html(input_path: str, output_path: str) -> None:
         print(f"Error: File not found: {input_path}", file=sys.stderr)
         sys.exit(1)
 
-    try:
-        with open(input_path, "r", encoding="utf-8") as f:
-            raw_content = f.read()
-    except UnicodeDecodeError:
-        with open(input_path, "r", encoding="latin-1", errors="ignore") as f:
-            raw_content = f.read()
+    raw_html = ""
+    for enc in ("utf-8", "latin-1"):
+        try:
+            with open(input_path, "r", encoding=enc, errors="replace") as f:
+                raw_html = f.read()
+            break
+        except Exception:
+            continue
 
-    cleaned_html = clean_html_string(raw_content)
+    if not raw_html:
+        print(f"Error: Could not read file: {input_path}", file=sys.stderr)
+        sys.exit(1)
 
-    # Method 1: markdownify
+    preprocessed = clean_html_string(raw_html)
+
+    # 1. Try markdownify
     try:
         import markdownify
-        md = markdownify.markdownify(cleaned_html, heading_style="ATX", strip=["script", "style"]).strip()
-        if md and len(md.splitlines()) > 2:
+        md = markdownify.markdownify(
+            preprocessed,
+            heading_style="ATX",
+            strip=["script", "style", "nav", "footer", "header", "aside"]
+        )
+        if md and len(md.strip().splitlines()) > 3:
+            final_md = re.sub(r"\n{3,}", "\n\n", md).strip() + "\n"
+            os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(md + "\n")
-            lines = len(md.splitlines())
-            print(f"Done. Extracted {lines} lines to {output_path} via markdownify", file=sys.stderr)
+                f.write(final_md)
+            lines = len(final_md.splitlines())
+            print(f"Done. Extracted {lines} lines to {output_path} (markdownify)", file=sys.stderr)
             return
-    except ImportError:
+    except Exception:
         pass
 
-    # Method 2: BeautifulSoup4 + html.parser
+    # 2. Try BeautifulSoup
     try:
         from bs4 import BeautifulSoup
-        soup = BeautifulSoup(cleaned_html, "html.parser")
-        # Extract title
-        title = soup.title.string.strip() if soup.title and soup.title.string else None
-        body_text = soup.get_text(separator="\n\n").strip()
-        # Clean multiple blank lines
-        body_text = re.sub(r"\n{3,}", "\n\n", body_text)
-        if title and not body_text.startswith("#"):
-            body_text = f"# {title}\n\n" + body_text
-        if body_text:
+        soup = BeautifulSoup(preprocessed, "html.parser")
+        for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
+            tag.decompose()
+        parser = FallbackHtmlToMarkdown()
+        parser.feed(str(soup))
+        md = parser.get_markdown()
+        if md and len(md.splitlines()) > 3:
+            final_md = md + "\n"
+            os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
             with open(output_path, "w", encoding="utf-8") as f:
-                f.write(body_text + "\n")
-            lines = len(body_text.splitlines())
-            print(f"Done. Extracted {lines} lines to {output_path} via BeautifulSoup4", file=sys.stderr)
+                f.write(final_md)
+            lines = len(final_md.splitlines())
+            print(f"Done. Extracted {lines} lines to {output_path} (BeautifulSoup + parser)", file=sys.stderr)
             return
-    except ImportError:
+    except Exception:
         pass
 
-    # Method 3: Built-in FallbackHtmlToMarkdown (Zero-dependency)
+    # 3. Fallback standard library parser
     parser = FallbackHtmlToMarkdown()
-    parser.feed(cleaned_html)
+    parser.feed(preprocessed)
     md = parser.get_markdown()
-
-    # Extract title from raw HTML if missing
-    title_match = re.search(r"<title[^>]*>(.*?)</title>", raw_content, re.IGNORECASE | re.DOTALL)
-    if title_match and not md.startswith("#"):
-        title = title_match.group(1).strip()
-        md = f"# {title}\n\n" + md
-
+    final_md = (md if md else "# Document (No readable text found)") + "\n"
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write(md + "\n")
-
-    lines = len(md.splitlines())
-    print(f"Done. Extracted {lines} lines to {output_path} via built-in parser", file=sys.stderr)
+        f.write(final_md)
+    lines = len(final_md.splitlines())
+    print(f"Done. Extracted {lines} lines to {output_path} (Standard library parser)", file=sys.stderr)
 
 
 def main():

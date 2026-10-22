@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-extract_ipynb.py — Extract Jupyter Notebook (.ipynb) to clean Markdown.
+extract_ipynb.py — Extract Jupyter Notebook (.ipynb) to clean Markdown without truncation.
 Usage: extract_ipynb.py <input.ipynb> [output.md]
 
 Zero external dependencies (uses Python standard library json).
 Converts markdown cells directly, wraps code cells in ```python blocks,
 and extracts notebook title from metadata or top heading.
+Outputs exceeding 1,000 characters are placed into collapsible <details> blocks.
 """
 
 import sys
@@ -19,7 +20,7 @@ def convert_ipynb(input_path: str, output_path: str) -> None:
         sys.exit(1)
 
     try:
-        with open(input_path, "r", encoding="utf-8") as f:
+        with open(input_path, "r", encoding="utf-8", errors="replace") as f:
             notebook = json.load(f)
     except Exception as e:
         print(f"Error reading notebook JSON: {e}", file=sys.stderr)
@@ -60,7 +61,7 @@ def convert_ipynb(input_path: str, output_path: str) -> None:
             code_block = f"```python\n{source_text}\n```"
             md_output.append(code_block)
 
-            # Optionally include text outputs (e.g. stdout / print statements)
+            # Outputs (e.g. stdout / print statements / execution results)
             outputs = cell.get("outputs", [])
             output_texts = []
             for out in outputs:
@@ -78,8 +79,11 @@ def convert_ipynb(input_path: str, output_path: str) -> None:
             if output_texts:
                 combined_out = "\n".join(output_texts)
                 if len(combined_out) > 1000:
-                    combined_out = combined_out[:1000] + "\n... [output truncated]"
-                md_output.append(f"> **Output:**\n```\n{combined_out}\n```")
+                    md_output.append(
+                        f"> **Output:**\n<details><summary>Click to expand output ({len(combined_out)} chars)</summary>\n\n```\n{combined_out}\n```\n</details>"
+                    )
+                else:
+                    md_output.append(f"> **Output:**\n```\n{combined_out}\n```")
 
         elif cell_type == "raw":
             md_output.append(f"```\n{source_text}\n```")
@@ -90,6 +94,7 @@ def convert_ipynb(input_path: str, output_path: str) -> None:
     if not final_content.startswith("# "):
         final_content = f"# {title_to_use}\n\n" + final_content
 
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(final_content + "\n")
 

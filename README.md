@@ -103,20 +103,25 @@ To review your compiled knowledge base for gaps, inconsistencies, or missing cro
 Lava Extruder provides both conversational agent skill triggers and direct command-line tools for CI/CD pipelines:
 
 ```bash
-# Initialize / scaffold a Karpathy RAG vault directly
+# Initialize / scaffold a Karpathy RAG vault directly (includes .obsidian graph presets)
 lava-extruder init ./my-vault
 # Same, plus git init for digest-batch history
 lava-extruder init ./my-vault --git
 
-# Extract any supported document format to Markdown
+# Extract any supported document format to Markdown (isolated in runs/extracted/)
 lava-extract raw/architecture-whitepaper.pdf
 # or:
 lava-extruder extract raw/metrics.xlsx
 
-# Inspect structural markers & plan large file segmentation
-lava-extruder count raw/book.extracted.md
+# Initialize and verify 100% section coverage ledger
+lava-extruder ledger init runs/extracted/whitepaper.pdf.md
+lava-extruder ledger check ./my-vault
+lava-extruder ledger sync-source ./my-vault raw/whitepaper.pdf
 
-# Deterministic vault integrity lint
+# Inspect structural markers & plan large file segmentation
+lava-extruder count runs/extracted/book.md
+
+# Deterministic vault integrity lint (supports --json for CI/CD)
 lava-extruder lint ./my-vault
 ```
 
@@ -147,5 +152,6 @@ The skill includes modular, local-first extractors in `skills/lava-extruder/scri
 | `extract_audio.py` | Audio transcription (OpenAI Whisper → `SpeechRecognition` → `ffmpeg`) |
 | `extract_image.sh` | Image OCR & metadata (Tesseract OCR + dimensions/dates) |
 | `count_sections.sh` | Count structural markers for segmentation plans |
+| `ledger.py` | Section-level coverage ledger & completeness gate (`lava-extruder ledger`) |
 | `lint_vault.py` | Deterministic vault integrity lint (`lava-extruder lint`) |
 
