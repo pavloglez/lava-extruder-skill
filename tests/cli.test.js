@@ -333,3 +333,23 @@ test('Lint: raw folder pollution with .extracted.md is flagged as ERROR', () => 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+
+test('Lint: markdown table with escaped pipe wikilinks ([[target\\|alias]]) resolves cleanly', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lava-test-table-pipe-'));
+  try {
+    spawnSync('node', [CLI_PATH, 'init', tmpDir], { encoding: 'utf-8' });
+    // Create topic directory with index and concept article
+    const topicDir = path.join(tmpDir, 'wiki', 'architecture');
+    fs.mkdirSync(topicDir, { recursive: true });
+
+    fs.writeFileSync(path.join(topicDir, 'clean-architecture.md'), '---\ntitle: "Clean Architecture"\ncreated: 2026-01-01\nupdated: 2026-01-01\ntags: [concept]\nsources: ["raw/book.pdf"]\ntype: wiki-concept\n---\n\n# Clean Architecture\n\nSee [[wiki/architecture/_index|Architecture Index]] and [[wiki/_master-index|Master Index]].\n', 'utf-8');
+
+    // Index table uses escaped pipe \| so Obsidian does not break table columns
+    fs.writeFileSync(path.join(topicDir, '_index.md'), '---\ntitle: "Architecture Domain"\ncreated: 2026-01-01\nupdated: 2026-01-01\ntags: [concept]\ntype: wiki-index\n---\n\n# Architecture Domain\n\n| Article | Description |\n|---|---|\n| [[wiki/architecture/clean-architecture\\|Clean Architecture Overview]] | Core patterns |\n', 'utf-8');
+
+    const res = spawnSync('python3', [LINT_VAULT, tmpDir], { encoding: 'utf-8' });
+    assert.equal(res.status, 0, `table pipe escaping should resolve cleanly without broken link errors: ${res.stdout}`);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});

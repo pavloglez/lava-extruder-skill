@@ -277,7 +277,7 @@ def check_ledger(vault_dir: str, specific_source: str = None) -> int:
                 continue
 
             # 4. Resolve wiki articles in Target
-            targets = WIKILINK_RE.findall(target)
+            targets = [t.rstrip("\\") for t in WIKILINK_RE.findall(target)]
             if not targets:
                 # Target is plain text without [[ ]]
                 targets = [target.strip()]
@@ -356,7 +356,8 @@ def sync_source_note(vault_dir: str, raw_rel_path: str) -> int:
             m = LEDGER_ROW_RE.match(line)
             if m:
                 s_id, _, _, heading, target, note = m.group(1), m.group(2), m.group(3), m.group(4).strip(), m.group(5).strip(), m.group(6).strip()
-                coverage_rows.append(f"| {s_id} | {heading} | {target} | {note} |")
+                esc_target = target.replace("|", "\\|")
+                coverage_rows.append(f"| {s_id} | {heading} | {esc_target} | {note} |")
 
     table_lines = [
         "| Section | Heading | Target Article | Notes |",

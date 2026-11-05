@@ -134,7 +134,7 @@ function handleInit(args) {
   // Master index
   const masterIndex = path.join(vaultDir, 'wiki', '_master-index.md');
   if (!fs.existsSync(masterIndex)) {
-    fs.writeFileSync(masterIndex, `# Master Knowledge Index\n\nEntry point for the knowledge base. Topic subfolders are listed below.\n\n| Topic | Description | Articles |\n|---|---|---|\n| [[sources/_index|sources]] | Provenance hubs and source coverage maps | 0 |\n`, 'utf-8');
+    fs.writeFileSync(masterIndex, `# Master Knowledge Index\n\nEntry point for the knowledge base. Topic subfolders are listed below.\n\n| Topic | Description | Articles |\n|---|---|---|\n| [[sources/_index\|sources]] | Provenance hubs and source coverage maps | 0 |\n`, 'utf-8');
     console.log('  Created: wiki/_master-index.md');
   }
 

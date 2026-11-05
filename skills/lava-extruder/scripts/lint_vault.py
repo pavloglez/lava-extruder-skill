@@ -189,6 +189,11 @@ def main():
             rel = idx_path.relative_to(vault_root).with_suffix("").as_posix()
             LINK_TITLES[rel.lower().strip()] = idx_path
             LINK_TITLES[idx_path.stem.lower().strip()] = idx_path
+            try:
+                rel_w = idx_path.relative_to(wiki_dir).with_suffix("").as_posix()
+                LINK_TITLES[rel_w.lower().strip()] = idx_path
+            except ValueError:
+                pass
             if idx_path.name == "_master-index.md":
                 LINK_TITLES["_master-index"] = idx_path
                 LINK_TITLES["wiki/_master-index"] = idx_path
@@ -211,7 +216,7 @@ def main():
     inbound = defaultdict(set)
     for path, (fm, text) in articles.items():
         for m in LINK_RE.finditer(text):
-            target = m.group(1).strip()
+            target = m.group(1).strip().rstrip("\\")
             # Ignore anchor-only links (#heading)
             if not target:
                 continue
@@ -221,7 +226,7 @@ def main():
     # Include index files in inbound link credit
     for path, text in index_files.items():
         for m in LINK_RE.finditer(text):
-            target = m.group(1).strip()
+            target = m.group(1).strip().rstrip("\\")
             if target:
                 inbound[target.lower()].add(path)
 

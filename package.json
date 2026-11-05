@@ -1,6 +1,6 @@
 {
   "name": "lava-extruder",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Antigravity skill plugin for creating AI-optimized Obsidian vaults with universal multi-format document extraction.",
   "main": "bin/cli.js",
   "bin": {
