@@ -15,10 +15,11 @@ This plugin provides the `lava-extruder` skill for Antigravity, Gemini, and Clau
 - **Querying**: `/query <question>` answers from the compiled wiki with `[[wiki link]]` citations, respecting `confidence`/`contested` frontmatter flags, and files substantial answers to `outputs/queries/`.
 - **Wiki Auditing**: Use the `/audit` or `/lint` commands to review your knowledge base for inconsistencies, broken links, or gaps — or run `lava-extruder lint <vault_dir>` directly for a deterministic, no-LLM integrity check.
 - **Loop Engineering Logs**: Sets up a `/runs` directory with log files (like `digested_index.md`) where agents can leave state, track past runs, and prevent duplicate processing.
-- **Representation, Not Micro-paging**: Every substantive concept gets representation in the wiki; minor mentions fold into existing articles instead of minting micro-pages, keeping the graph navigable (see Page Thresholds).
+- **Zero-Summarization, Zero-Skip Digestion**: Transforms raw documents losslessly into fast, scannable Markdown articles without dropping facts, numbers, tables, code, or context.
+- **Fast-Reading Markdown Formatting**: Converts dense walls of text into clean heading hierarchies, bullet lists, comparison tables, and quick-scan callouts for instant readability.
 - **Segmented Extraction (Stream-to-disk)**: Safely processes massive documents (thousands of lines) by extracting and writing wiki articles segment-by-segment immediately. It **does not** accumulate large files into a single context-breaking WIP file, preventing silent data loss.
-- **Completeness Verification Gate**: Automatically audits section and line coverage to ensure 100% completeness before marking any large file as fully digested.
-- **Page Thresholds**: Articles are created only when a concept is central to a source or appears in 2+ sources; minor mentions fold into existing articles; articles over ~200 lines get split. No `misc/` catch-alls.
+- **Completeness Verification Gate**: Automatically audits section and line coverage via coverage ledgers to ensure 100% retention before marking any file as digested.
+- **Granularity & Structure**: Major concepts receive dedicated articles; smaller sections fold into parent notes without data loss; articles exceeding ~400 lines are split into linked sub-articles rather than condensed.
 - **Cross-File Association**: After processing a batch, the Crystallization phase automatically discovers connections between articles from different sources, adds bidirectional cross-links, merges duplicates, and splits overgrown articles.
 
 ## Supported Formats

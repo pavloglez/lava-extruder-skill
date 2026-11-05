@@ -1,11 +1,11 @@
 ---
 name: lava-extruder
-description: Sets up an AI-optimized Obsidian vault folder structure with index maps, a SCHEMA.md governance contract, and AGENTS.md/CLAUDE.md instructions. Can create vaults from scratch or reorganize existing messy folders. Ingests unstructured data from the vault's /raw folder, synthesizes it into structured /wiki articles using the Lava Cooling process (Eruption, Flow, Cooling Bed, Crystallization), answers questions from the compiled wiki, and lints the knowledge base for integrity.
+description: Sets up an AI-optimized Obsidian vault folder structure with index maps, a SCHEMA.md governance contract, and AGENTS.md/CLAUDE.md instructions. Can create vaults from scratch or reorganize existing messy folders. Ingests unstructured data from the vault's /raw folder, transforming it losslessly into fast, easy-to-understand structured /wiki Markdown articles without summarizing or skipping information, answers questions from the compiled wiki, and lints the knowledge base for integrity.
 ---
 
 # Obsidian Vault Setup & Lava Cooling Obsidian Processing Skill
 
-You are an expert at creating and maintaining AI-native Obsidian vaults based on the "Karpathy RAG" architecture. Your goal is to establish and navigate folder structures optimized for agentic retrieval, and to transform unstructured source documents into structured intelligence and deliverables without losing any facts or context.
+You are an expert at creating and maintaining AI-native Obsidian vaults based on the "Karpathy RAG" architecture. Your goal is to establish and navigate folder structures optimized for agentic retrieval, and to transform unstructured source documents into fast, easy-to-read, structured Markdown articles in `/wiki` without summarizing or skipping any facts, numbers, code, or context.
 
 The `/wiki` folder is an LLM-maintained knowledge base — you write and maintain everything in it. The vault's `SCHEMA.md` is the per-vault governance contract: it always wins over your defaults.
 
@@ -82,11 +82,11 @@ lava-extruder ledger init "runs/extracted/<file>.md"
 ```
 This generates `runs/ledger/<file>.md` listing every section `S001..Snnn` with line ranges and headings.
 
-### 2. Map Content to Wiki
+### 2. Map Content to Wiki (Zero-Skip, Zero-Summarization)
 As you write or fold articles in `/wiki/`, record each section's destination in `runs/ledger/<file>.md`:
 - If mapped to an article: enter `Target: [[article-slug]]`
-- If folded into an existing note: enter `Target: [[existing-article]]` (ensure concrete numbers, dates, and steps are preserved)
-- If deliberately skipped (e.g. legal disclaimers, license boilerplate): enter `Target: skip` and provide an explicit reason in `Note: <reason>`
+- If folded into an existing note: enter `Target: [[existing-article]]` (ensure all concrete facts, numbers, dates, steps, and code are preserved intact)
+- If exceptionally skipped (e.g. repeated license text): enter `Target: skip` and provide an explicit justification in `Note: <reason>`. *Notice: `ledger check` flags skips as warnings — prefer converting all sections into Markdown.*
 
 ### 3. Verification Gate (Mandatory before digestion)
 Run the deterministic coverage verification check:
@@ -95,11 +95,11 @@ lava-extruder ledger check "<vault_dir>" --source "<raw_path>"
 ```
 The check verifies:
 1. Every row has a non-empty Target.
-2. Every `skip` row has an explicit explanation in `Note`.
+2. Every `skip` row has an explicit explanation in `Note` (emits a WARN).
 3. Every target article exists on disk in `wiki/`.
 4. Every target article references the raw file in its frontmatter `sources:` list.
 5. All line ranges from line 1 to EOF are accounted for without unmapped gaps.
-6. **Recall Heuristic (WARN):** Warns if concrete numbers, dates, or named entities from the source section are absent in the target article.
+6. **Recall Heuristic (WARN):** Warns if concrete numbers, dates, technical acronyms, or named entities from the source section are absent in the target article.
 
 ### 4. Sync Source Hub Note
 Generate or update the provenance hub note in `wiki/sources/<slug>.md`:
@@ -122,8 +122,8 @@ Scaffold with `lava-extruder init <dir>` (add `--git` to initialize a git reposi
 - `/outputs`: Deliverables, synthesized reports, and filed query answers (`outputs/queries/`, `outputs/reports/`).
 - `/runs`: Agent memory, extracted documents (`runs/extracted/`), coverage ledgers (`runs/ledger/`), session cache (`hot.md`), and logs.
 
-### Article Frontmatter Standard (v3)
-Every article in `/wiki/` MUST include YAML frontmatter:
+### Article Frontmatter & Formatting Standard (v3)
+Every article in `/wiki/` MUST include YAML frontmatter and fast-reading Markdown formatting:
 ```markdown
 ---
 title: "Article Title"
@@ -140,11 +140,11 @@ contradictions: [] # slugs of conflicting articles
 
 # Article Title
 
-## Key Takeaways
-- Key point 1
+## Quick Scan
+- Bulleted quick overview of key takeaways for fast reference
 
-## Content
-...
+## Detailed Content
+<!-- Full, unsummarized, structured Markdown: headings, bullet hierarchies, tables, quotes, code -->
 
 ## Related Topics
 - [[related-article]] — explanation of connection
@@ -155,6 +155,7 @@ Rules:
 - Bump `updated` on every edit.
 - Every article must have **at least 2 outbound `[[wikilinks]]`** with connection reason clauses.
 - On articles synthesizing 3+ sources, append `^[raw/source-file.pdf]` provenance markers to paragraphs whose claims trace to a specific source.
+- Do not summarize or skip details: retain 100% of facts, steps, parameters, and tables while making formatting clean and scannable.
 
 ---
 
@@ -168,12 +169,13 @@ When communicating with the user, identify and announce each phase:
 - Run `lava-extract "<file>"`. Output is saved to `runs/extracted/<rel>.md`.
 - Initialize coverage ledger: `lava-extruder ledger init "runs/extracted/<rel>.md"`.
 
-### 2. Transport (The Flow)
+### 2. Transport (The Flow) — Lossless Markdown Transformation
 - Work section by section through `runs/ledger/<rel>.md`.
-- Route central concepts into `/wiki/<topic>/` articles applying Page Thresholds:
-  - Central concepts or concepts in 2+ sources get an article.
-  - Minor mentions fold into existing articles (retain numbers, dates, steps).
-  - Split articles > 200 lines.
+- Transform raw contents into fast, easily readable Markdown without summarizing or skipping:
+  - Structure dense walls of text into clean headings, bullet hierarchies, and GFM tables.
+  - Preserve 100% of facts, numbers, dates, steps, tables, code, and edge cases.
+  - Major concepts get dedicated articles in `/wiki/<topic>/`; smaller related sections fold into parent notes without loss of detail.
+  - Split articles > 400 lines into linked sub-articles rather than condensing content.
 - Record `Target` in the coverage ledger for every section.
 
 ### 3. Storage (The Cooling Bed)

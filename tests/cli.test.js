@@ -45,6 +45,9 @@ test('CLI: init creates complete Karpathy RAG vault structure with Obsidian grap
     // Verify navigation and agent files
     assert.ok(fs.existsSync(path.join(tmpDir, 'index.md')), 'index.md should exist');
     assert.ok(fs.existsSync(path.join(tmpDir, 'SCHEMA.md')), 'SCHEMA.md should exist');
+    const schemaContent = fs.readFileSync(path.join(tmpDir, 'SCHEMA.md'), 'utf-8');
+    assert.match(schemaContent, /Zero Summarization, Zero Skips/);
+    assert.match(schemaContent, /Content Transformation & Granularity Policy/);
     assert.ok(fs.existsSync(path.join(tmpDir, 'wiki', '_master-index.md')), 'wiki/_master-index.md should exist');
     assert.ok(fs.existsSync(path.join(tmpDir, 'wiki', 'sources', '_index.md')), 'wiki/sources/_index.md should exist');
     assert.ok(fs.existsSync(path.join(tmpDir, 'runs', 'logs.md')), 'runs/logs.md should exist');
@@ -205,6 +208,25 @@ test('Ledger: check fails on unmapped section, empty target, or skip without not
     assert.notEqual(res.status, 0);
     assert.match(res.stderr, /Empty Target/);
     assert.match(res.stderr, /justification required/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('Ledger: skip with justification note emits warning without exit error', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lava-test-ledger-skip-warn-'));
+  try {
+    spawnSync('node', [CLI_PATH, 'init', tmpDir], { encoding: 'utf-8' });
+    const ledgerDir = path.join(tmpDir, 'runs', 'ledger');
+    fs.mkdirSync(ledgerDir, { recursive: true });
+
+    const ledgerFile = path.join(ledgerDir, 'test.md');
+    fs.writeFileSync(ledgerFile, '# Coverage Ledger\n\n| ID | Lines | Heading | Target | Note |\n|---|---|---|---|---|\n| S001 | 1-20 | License | skip | MIT license boilerplate |\n', 'utf-8');
+
+    const res = spawnSync('node', [CLI_PATH, 'ledger', 'check', tmpDir], { encoding: 'utf-8' });
+    assert.equal(res.status, 0);
+    assert.match(res.stderr, /WARN:/);
+    assert.match(res.stderr, /prefer transforming into wiki Markdown/);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

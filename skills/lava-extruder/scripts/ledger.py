@@ -181,7 +181,7 @@ def collect_article_titles(vault_root: Path) -> dict:
 
 
 def extract_salient_tokens(text: str) -> set:
-    """Extract numbers, percentages, dates, and capitalized named entities for recall heuristic."""
+    """Extract numbers, percentages, dates, capitalized named entities, and technical acronyms for recall heuristic."""
     tokens = set()
     # Numbers with decimals or percentages (e.g. 84.5%, 2026, 150)
     for m in re.finditer(r"\b\d+(?:\.\d+)?%?", text):
@@ -191,6 +191,11 @@ def extract_salient_tokens(text: str) -> set:
     # Capitalized entity phrases on the same line (e.g. Paxos Protocol, Raft Algorithm)
     for m in re.finditer(r"\b[A-Z][a-z]{2,}(?:[ \t]+[A-Z][a-z]{2,})+\b", text):
         tokens.add(m.group(0).strip())
+    # Uppercase technical acronyms (e.g. RAG, FIFO, HTTP, OAuth2)
+    for m in re.finditer(r"\b[A-Z]{2,}[0-9]*\b", text):
+        val = m.group(0).strip()
+        if len(val) >= 2:
+            tokens.add(val)
     return tokens
 
 
@@ -267,6 +272,8 @@ def check_ledger(vault_dir: str, specific_source: str = None) -> int:
             if target.lower() in ("skip", "skipped", "ignore", "ignored", "none"):
                 if not note:
                     errors.append(f"[{lf.name} {s_id}] Target is '{target}' but Note is empty (justification required).")
+                else:
+                    warnings.append(f"[{lf.name} {s_id}] Section '{heading}' was skipped: {note} (prefer transforming into wiki Markdown).")
                 continue
 
             # 4. Resolve wiki articles in Target
@@ -383,8 +390,8 @@ type: source
 - **Extracted:** `runs/extracted/{Path(raw_rel_path).name}.md`
 - **Ledger:** `runs/ledger/{Path(raw_rel_path).name}.md`
 
-## Summary
-<!-- Add 2-3 bullet executive summary of source content -->
+## Overview & Structure
+<!-- Outline of source contents and topics covered -->
 
 ## Coverage Map
 {table_block}

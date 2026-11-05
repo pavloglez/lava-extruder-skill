@@ -10,7 +10,7 @@ Checks (no LLM needed):
 - missing/invalid frontmatter    -> ERROR   missing required fields or bad YAML block
 - tags outside taxonomy          -> WARN    tag used but not in SCHEMA.md taxonomy
 - articles with <2 outbound links-> WARN    invisible to graph navigation
-- oversized articles (>200 lines)-> WARN    candidate for splitting
+- oversized articles (>400 lines)-> WARN    split into linked sub-articles without condensing
 - stale articles                 -> INFO    updated older than 180 days or stale vs vault
 - digested index vs raw files    -> ERROR   raw path missing or sha256 changed since digest
 - source notes for digested files-> WARN    digested file missing wiki/sources/ note
@@ -292,8 +292,8 @@ def main():
 
         # Article size
         lines = text.count("\n") + 1
-        if lines > 200:
-            findings.append(("WARN", f"article is {lines} lines (>200): consider splitting", str(path)))
+        if lines > 400:
+            findings.append(("WARN", f"article is {lines} lines (>400): consider splitting into linked sub-articles without condensing or dropping details", str(path)))
 
     # --- 8. Index maps existence & filesystem drift ---
     if not (vault_root / "index.md").exists():

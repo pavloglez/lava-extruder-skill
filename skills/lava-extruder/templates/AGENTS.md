@@ -18,8 +18,8 @@ The `/wiki` folder is an LLM-maintained knowledge base. The vault's `SCHEMA.md` 
 
 At the END of every compile or query session that modified the vault, rewrite `runs/hot.md` (overwrite, keep under 500 words).
 
-## Wiki Article Frontmatter Standard (v3)
-Every article in `/wiki/` MUST include YAML frontmatter:
+## Wiki Article Frontmatter & Formatting Standard (v3)
+Every article in `/wiki/` MUST include YAML frontmatter and clean, scannable Markdown:
 ```markdown
 ---
 title: "Article Title"
@@ -36,11 +36,11 @@ contradictions: []
 
 # Article Title
 
-## Key Takeaways
-- Key point 1
+## Quick Scan
+- Key takeaways for rapid reference
 
-## Content
-...
+## Detailed Content
+<!-- Full, unsummarized, structured Markdown: headings, bullet hierarchies, tables, quotes, code -->
 
 ## Related Topics
 - [[related-article]] — explanation of connection
@@ -51,6 +51,7 @@ Rules:
 - Bump `updated` on every edit.
 - Every article must have at least 2 outbound `[[wikilinks]]`.
 - Always provide a brief reason clause after related topic links to prevent shallow graph edges.
+- Zero Summarization, Zero Skips: Never omit facts, numbers, dates, steps, tables, or code. Transform walls of prose into fast, scannable Markdown.
 
 ## The Lava Cooling Process (Compiling Knowledge)
 When commanded `/compile` or `/digest-new`:
@@ -60,12 +61,12 @@ When commanded `/compile` or `/digest-new`:
    - Extract raw files using `lava-extract "<raw_path>"`. Output is stored in `runs/extracted/<rel>.md`.
    - Initialize coverage ledger: `lava-extruder ledger init "runs/extracted/<rel>.md"`.
 
-2. **Transport & Storage (The Flow & Cooling Bed):**
+2. **Transport & Storage (The Flow & Cooling Bed) — Lossless Markdown Transformation:**
    - Read segment by segment from the coverage ledger in `runs/ledger/<rel>.md`.
-   - Route qualifying concepts into `/wiki/<topic>/` articles applying Page Thresholds:
-     - Central concepts or concepts in 2+ sources get an article.
-     - Minor mentions fold into existing articles; keep concrete numbers, dates, steps.
-     - Split articles > 200 lines.
+   - Transform 100% of raw content into fast, scannable Markdown without summarizing or dropping details:
+     - Structure into clear headings, bullet hierarchies, comparison tables, and callouts.
+     - Major topics get dedicated articles; smaller related sections fold into parent notes (preserving all facts).
+     - Split articles > 400 lines into linked sub-articles rather than condensing.
    - Fill the `Target` and `Note` columns in `runs/ledger/<rel>.md`.
    - Update topic `_index.md` and `wiki/_master-index.md`.
 

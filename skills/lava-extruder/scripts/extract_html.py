@@ -17,11 +17,11 @@ from html.parser import HTMLParser
 
 
 def clean_html_string(raw_html: str) -> str:
-    """Pre-strip script, style, navigation, and boilerplate tags."""
-    # Remove script and style tags
+    """Pre-strip script, style, and navigation boilerplate tags without skipping article content."""
+    # Remove script, style, svg, and iframe tags
     cleaned = re.sub(r"<(script|style|noscript|svg|iframe)[^>]*>.*?</\1>", "", raw_html, flags=re.DOTALL | re.IGNORECASE)
-    # Remove header, footer, nav, aside blocks that usually contain UI boilerplate
-    cleaned = re.sub(r"<(nav|footer|aside)[^>]*>.*?</\1>", "", cleaned, flags=re.DOTALL | re.IGNORECASE)
+    # Remove nav and footer blocks that contain site-wide UI chrome (preserves aside callouts and article headers)
+    cleaned = re.sub(r"<(nav|footer)[^>]*>.*?</\1>", "", cleaned, flags=re.DOTALL | re.IGNORECASE)
     # Replace inline base64 image data strings to avoid megabyte-long lines while preserving img tag
     cleaned = re.sub(r'src=["\']data:image/[^;]+;base64,[A-Za-z0-9+/=]+["\']', 'src="inline-image-data"', cleaned)
     return cleaned
@@ -183,7 +183,7 @@ def convert_html(input_path: str, output_path: str) -> None:
         md = markdownify.markdownify(
             preprocessed,
             heading_style="ATX",
-            strip=["script", "style", "nav", "footer", "header", "aside"]
+            strip=["script", "style", "nav", "footer"]
         )
         if md and len(md.strip().splitlines()) > 3:
             final_md = re.sub(r"\n{3,}", "\n\n", md).strip() + "\n"
@@ -200,7 +200,7 @@ def convert_html(input_path: str, output_path: str) -> None:
     try:
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(preprocessed, "html.parser")
-        for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
+        for tag in soup(["script", "style", "nav", "footer"]):
             tag.decompose()
         parser = FallbackHtmlToMarkdown()
         parser.feed(str(soup))
